@@ -1,0 +1,133 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>EventHub | Student Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <style>
+        .card-img-top {
+            height: 150px;
+            object-fit: cover;
+            background-color: #6c757d;
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#">EventHub</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item"><a class="nav-link active" href="{% url 'CreateEvent:index' %}">Dashboard</a></li>
+                {% if user.is_authenticated %}
+                    <li class="nav-item"><span class="nav-link text-warning">Hello, {{ user.first_name }}</span></li>
+                    <!-- Add a Logout link here in the future -->
+                {% else %}
+                    <li class="nav-item"><a class="nav-link" href="{% url 'account:login' %}">Login</a></li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<header class="bg-primary text-white text-center py-5 mb-4">
+    <h1>Student Event Dashboard</h1>
+    <p>Browse available events and manage your schedule</p>
+</header>
+
+<main class="container">
+
+    <!-- Messages Area -->
+    {% if messages %}
+        <div class="row">
+            <div class="col-12">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Events Grid -->
+    <div class="row row-cols-1 row-cols-md-3 g-4">
+        {% for event in events %}
+            <!-- Calculate Availability Logic -->
+            <!-- Note: event.attendees.count is a DB query. Ideally done in views, but okay for small apps -->
+            {% with current_count=event.attendees.count %}
+
+            <div class="col">
+                <div class="card h-100 shadow-sm border-0">
+                    <div class="card-header bg-transparent border-0 pt-3">
+                        <span class="badge bg-secondary">{{ event.room.RoomName }}</span>
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title text-primary">{{ event.EventTitle }}</h5>
+                        <hr>
+                        <p class="card-text mb-1">
+                            <strong>📅 Date:</strong> {{ event.DateOfEvent }}
+                        </p>
+                        <p class="card-text mb-3">
+                            <strong>👥 Capacity:</strong> {{ current_count }} / {{ event.MaxParticipants }}
+                        </p>
+
+                        <!-- LOGIC: Determine which button to show -->
+                        {% if user.is_authenticated %}
+
+                            {% if event.EventId in joined_event_ids %}
+                                <!-- Case 1: Already Joined -->
+                                <button class="btn btn-success w-100" disabled>
+                                    ✅ Registered
+                                </button>
+
+                            {% elif current_count >= event.MaxParticipants %}
+                                <!-- Case 2: Event is Full -->
+                                <button class="btn btn-secondary w-100" disabled>
+                                    ⛔ Fully Booked
+                                </button>
+
+                            {% else %}
+                                <!-- Case 3: Available to Register -->
+                                <a href="{% url 'CreateEvent:register_student' event.EventId %}"
+                                   class="btn btn-outline-primary w-100"
+                                   onclick="return confirm('Do you want to register for {{ event.EventTitle }}?')">
+                                   Register Now
+                                </a>
+                            {% endif %}
+
+                        {% else %}
+                            <!-- Case 4: Not Logged In -->
+                            <a href="{% url 'account:login' %}" class="btn btn-dark w-100">
+                                Login to Register
+                            </a>
+                        {% endif %}
+
+                    </div>
+                </div>
+            </div>
+            {% endwith %}
+        {% empty %}
+            <div class="col-12 text-center py-5">
+                <h3 class="text-muted">No events are currently scheduled.</h3>
+            </div>
+        {% endfor %}
+    </div>
+</main>
+
+<footer class="text-center py-4 mt-5 text-muted">
+    <small>&copy; 2025 EventHub System</small>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
