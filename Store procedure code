@@ -1,0 +1,58 @@
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS RegisterStudentForEvent $$
+
+CREATE PROCEDURE RegisterStudentForEvent(
+    IN p_student_username VARCHAR(20),
+    IN p_event_id INT
+)
+BEGIN
+    DECLARE v_max_participants INT;
+    DECLARE v_current_count INT;
+    DECLARE v_already_joined INT;
+    DECLARE v_student_exists INT;
+
+    -- FIX 1: Change 'username' to 'user_ptr_id' (Django's internal pointer name)
+    SELECT COUNT(*) INTO v_student_exists
+    FROM account_student
+    WHERE user_ptr_id = p_student_username;
+
+    IF v_student_exists = 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Error: Student record does not exist.';
+    END IF;
+
+    -- Check if the Student is already registered
+    SELECT COUNT(*) INTO v_already_joined
+    FROM CreateEvent_attendevent
+    WHERE student_id = p_student_username
+      AND event_id = p_event_id
+      AND status = 'JOINED';
+
+    IF v_already_joined > 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Error: You are already registered for this event.';
+    END IF;
+
+    -- Check Capacity
+    SELECT MaxParticipants INTO v_max_participants
+    FROM CreateEvent_event
+    WHERE EventId = p_event_id;
+
+    SELECT COUNT(*) INTO v_current_count
+    FROM CreateEvent_attendevent
+    WHERE event_id = p_event_id
+      AND status = 'JOINED';
+
+    IF v_current_count >= v_max_participants THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Error: Event has reached maximum capacity.';
+    END IF;
+
+    -- Insert the record
+    INSERT INTO CreateEvent_attendevent (status, student_id, event_id)
+    VALUES ('JOINED', p_student_username, p_event_id);
+
+END $$
+
+DELIMITER ;
